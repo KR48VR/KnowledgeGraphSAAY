@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SAAY Knowledge Graph — Persuasion & Strategy Toolkit</title>
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #fafaf7;
+    color: #222;
+  }
+  header {
+    padding: 18px 28px;
+    border-bottom: 1px solid #e5e3dd;
+    background: white;
+  }
+  header h1 {
+    margin: 0 0 6px 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+  header p {
+    margin: 0;
+    font-size: 13px;
+    color: #666;
+    line-height: 1.5;
+  }
+  #wrap {
+    display: flex;
+    height: calc(100vh - 88px);
+  }
+  #network {
+    flex: 1;
+    background: #fafaf7;
+  }
+  #legend {
+    width: 280px;
+    border-left: 1px solid #e5e3dd;
+    padding: 18px 20px;
+    overflow-y: auto;
+    background: white;
+    font-size: 12.5px;
+  }
+  #legend h2 {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #666;
+  }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 7px;
+    line-height: 1.3;
+  }
+  .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    margin-right: 9px;
+    flex-shrink: 0;
+  }
+  .legend-section {
+    margin-bottom: 18px;
+  }
+  .stats {
+    background: #f4f1ea;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .stats strong { color: #b8860b; }
+  #info {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    background: white;
+    border: 1px solid #d6d3cb;
+    border-radius: 8px;
+    padding: 14px 16px;
+    max-width: 360px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    font-size: 13px;
+    line-height: 1.5;
+    display: none;
+    pointer-events: none;
+  }
+  #info h3 { margin: 0 0 4px 0; font-size: 14px; }
+  #info .thinker { color: #888; font-size: 12px; margin-bottom: 8px; font-style: italic; }
+  #info .definition { color: #333; }
+  #info .pairs { color: #555; font-size: 12px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e0ddd5; }
+  .keyword { color: #b8860b; font-weight: 500; }
+  .star {
+    color: #d4a017;
+    font-size: 11px;
+    margin-left: 4px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SAAY Knowledge Graph — your persuasion & strategy toolkit</h1>
+  <p>Each node is a technique. Each line is a "combines well with" pairing. Color shows the thinker. Larger nodes = more pairings. Hover for details. Drag to rearrange.</p>
+</header>
+
+<div id="wrap">
+  <div id="network"></div>
+  <div id="legend">
+    <div class="legend-section">
+      <h2>Thinkers</h2>
+      <div id="thinkerLegend"></div>
+    </div>
+    <div class="legend-section">
+      <h2>Status (border)</h2>
+      <div class="legend-row"><div class="swatch" style="background:white;border:3px solid #2e7d32;"></div>Active (Commitment #11)</div>
+      <div class="legend-row"><div class="swatch" style="background:white;border:3px solid #1976d2;"></div>Practiced</div>
+      <div class="legend-row"><div class="swatch" style="background:white;border:3px solid #888;"></div>Banked (not yet practiced)</div>
+    </div>
+    <div class="legend-section">
+      <h2>What you've done so far</h2>
+      <div class="stats">
+        <strong>30+ techniques</strong> across <strong>13 thinkers</strong><br>
+        <strong>10 commitments completed</strong>, #11 in progress<br>
+        <strong>100% practice rate</strong> (10 / 10)<br>
+        Active stack: <span class="keyword">Marks + Drucker + Graham</span>
+      </div>
+    </div>
+    <div class="legend-section">
+      <h2>Today's wildcards (not yet in Notion)</h2>
+      <div style="font-size:12px;color:#555;line-height:1.5;">
+        <strong>Charlie Munger</strong> — incentives, inversion, man-with-a-hammer<br>
+        <strong>Marshall McLuhan</strong> — medium is the message, global village<br>
+        <strong>Friedrich Hayek</strong> — knowledge problem, fatal conceit, spontaneous order
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="info"></div>
+
+<script>
+// ---------- DATA ----------
+// Thinkers and colors
+const thinkers = {
+  "Scott Adams": "#3b82f6",
+  "Peter Drucker": "#16a34a",
+  "Howard Marks": "#9333ea",
+  "Benjamin Graham": "#a16207",
+  "Robert Caro": "#dc2626",
+  "Niccolò Machiavelli": "#db2777",
+  "W. Edwards Deming": "#525252",
+  "Fisher/Ury": "#ea580c",
+  "John Boyd": "#0891b2",
+  "Clayton Christensen": "#ca8a04",
+  "Stewart Brand": "#15803d",
+  "Erving Goffman": "#7c7c7c",
+  "Umberto Eco": "#be185d"
+};
+
+// Status border colors
+const statusBorder = {
+  "active":   "#2e7d32",  // commitment #11
+  "practiced":"#1976d2",
+  "banked":   "#888888"
+};
+
+// Techniques with thinker, status, definition, and combines-with
+const techniques = [
+  // Scott Adams
+  {id: "Persuasion Filter", thinker: "Scott Adams", status: "practiced", def: "Reality gets shaped by language and pictures before facts arrive. The story you can tell about something is more powerful than the thing itself.", pairs: ["Two Movies on One Screen","Visual Persuasion","Directionally Accurate"]},
+  {id: "Two Movies on One Screen", thinker: "Scott Adams", status: "practiced", def: "Same event, opposite verdicts — and neither side is moving. Facts don't reconcile because viewers are watching different movies.", pairs: ["Persuasion Filter","Mr. Market","Directionally Accurate"]},
+  {id: "Talent Stack", thinker: "Scott Adams", status: "practiced", def: "Combine ordinary skills until the combination is rare. You don't need to be #1 at one thing — be above average at three.", pairs: ["Systems vs. Goals","Create a Customer"]},
+  {id: "Thinking Past the Sale", thinker: "Scott Adams", status: "practiced", def: "Get the audience arguing about details once they've already accepted the premise. Spot the move; refuse the premise.", pairs: ["Pacing and Leading","Strategic Ambiguity","Create a Customer","Inventing Options for Mutual Gain"]},
+  {id: "Critics Are Mascots", thinker: "Scott Adams", status: "practiced", def: "Critics aren't a threat — they're proof you matter. Use them as evidence for the case you're already making.", pairs: ["High-Ground Maneuver","Power Reveals","Withdrawal of Access"]},
+  {id: "High-Ground Maneuver", thinker: "Scott Adams", status: "practiced", def: "Zoom up to a principle nobody can disagree with. The critic looks small not because you crushed them, but because you stood above them.", pairs: ["Critics Are Mascots","Pacing and Leading","Power Reveals","Thinking Past the Sale"]},
+  {id: "Pacing and Leading", thinker: "Scott Adams", status: "practiced", def: "Match the audience first (pace), then take them somewhere new (lead). Persuasion only works after rapport.", pairs: ["Thinking Past the Sale","Inventing Options for Mutual Gain","High-Ground Maneuver"]},
+  {id: "Strategic Ambiguity", thinker: "Scott Adams", status: "practiced", def: "Keep your options open by leaving the meaning unclear. Both sides see what they want; you preserve maneuver.", pairs: ["Thinking Past the Sale","Pacing and Leading","The Lion and the Fox","Contrast"]},
+  {id: "Systems vs. Goals", thinker: "Scott Adams", status: "practiced", def: "Build a procedure you run every day. Goals are for losers; systems are for winners.", pairs: ["Talent Stack","Create a Customer","OODA Loop","Pace Layering","94/6 Rule"]},
+  {id: "Fake Because", thinker: "Scott Adams", status: "practiced", def: "A stated reason that gives bystanders permission to agree. The reason doesn't have to be real — it just has to be sayable.", pairs: ["Persuasion Filter","Second-Level Thinking","94/6 Rule"]},
+  {id: "Contrast", thinker: "Scott Adams", status: "practiced", def: "Same fact, jarring juxtaposition. The contrast is the persuasion; the data is the excuse.", pairs: ["Strategic Ambiguity","The Lion and the Fox"]},
+  {id: "Directionally Accurate", thinker: "Scott Adams", status: "practiced", def: "A claim that's roughly true survives fact-checking through sheer momentum. Don't try to refute — refuse the premise.", pairs: ["Persuasion Filter","Two Movies on One Screen"]},
+  {id: "Focus Inflates Importance", thinker: "Scott Adams", status: "practiced", def: "What gets attention gets weight, regardless of actual importance. Watch where the camera points, not where the action is.", pairs: ["Persuasion Filter","Common Cause Variation"]},
+
+  // Peter Drucker
+  {id: "Knowledge Worker", thinker: "Peter Drucker", status: "active", def: "Someone who thinks for a living. With AI in the picture, the question becomes: who is the knowledge worker now — you, the AI, or some new joint unit?", pairs: ["Accountability (MBO)","Create a Customer","Systems vs. Goals"]},
+  {id: "Accountability (MBO)", thinker: "Peter Drucker", status: "active", def: "Output can be produced by AI; accountability cannot. Find where it lands.", pairs: ["Knowledge Worker","Create a Customer","Second-Level Thinking"]},
+  {id: "Create a Customer", thinker: "Peter Drucker", status: "active", def: "The purpose of a business isn't profit — it's to create a customer. The cold test: did the work attract someone willing to pay?", pairs: ["Knowledge Worker","Accountability (MBO)","Talent Stack","Systems vs. Goals","Thinking Past the Sale","Margin of Safety","Inventing Options for Mutual Gain","Innovator's Dilemma"]},
+
+  // Howard Marks
+  {id: "Second-Level Thinking", thinker: "Howard Marks", status: "active", def: "First-level says 'AI is the future.' Second-level asks 'what's already in the price?' One level past the obvious answer.", pairs: ["Create a Customer","Mr. Market","Margin of Safety","The Pendulum","Accountability (MBO)","Fake Because"]},
+  {id: "The Pendulum", thinker: "Howard Marks", status: "practiced", def: "Investor psychology swings from euphoria to despair, never resting at the average. Useful as a reminder that 'this time is different' usually isn't.", pairs: ["Mr. Market","Second-Level Thinking"]},
+
+  // Benjamin Graham
+  {id: "Mr. Market", thinker: "Benjamin Graham", status: "active", def: "The market is a manic-depressive partner — some days he overpays, some days he panic-sells. You don't have to trade with him.", pairs: ["Voting vs. Weighing","Margin of Safety","Two Movies on One Screen","Second-Level Thinking","The Pendulum"]},
+  {id: "Voting vs. Weighing", thinker: "Benjamin Graham", status: "active", def: "Short-run, the market is a voting machine (sentiment). Long-run, a weighing machine (value).", pairs: ["Mr. Market","Margin of Safety"]},
+  {id: "Margin of Safety", thinker: "Benjamin Graham", status: "active", def: "The cushion between price and value, in case you're wrong. Ask before you commit, not after.", pairs: ["Mr. Market","Voting vs. Weighing","Second-Level Thinking","Create a Customer"]},
+
+  // Robert Caro
+  {id: "Power Reveals", thinker: "Robert Caro", status: "practiced", def: "When someone gets power, you finally see what they intended all along. How you respond to criticism when you could crush it tells everyone watching who you really are.", pairs: ["Withdrawal of Access","Critics Are Mascots","High-Ground Maneuver","Framing"]},
+  {id: "Withdrawal of Access", thinker: "Robert Caro", status: "practiced", def: "LBJ's most effective tool was silence. Become unavailable; the absence does the work an argument can't.", pairs: ["Power Reveals","Critics Are Mascots","The Lion and the Fox"]},
+
+  // Machiavelli
+  {id: "The Lion and the Fox", thinker: "Niccolò Machiavelli", status: "practiced", def: "The lion is force, the fox is cunning. A leader needs both — and the wisdom to know which the moment calls for.", pairs: ["Virtù","Fortuna","Strategic Ambiguity","Withdrawal of Access","Contrast"]},
+  {id: "Virtù", thinker: "Niccolò Machiavelli", status: "practiced", def: "The discipline and skill to act decisively in the moment fortune offers. Not virtue in the moral sense — capability.", pairs: ["The Lion and the Fox","Fortuna","OODA Loop"]},
+  {id: "Fortuna", thinker: "Niccolò Machiavelli", status: "practiced", def: "The window the world opens unpredictably. You can't summon it — but you must be ready when it opens.", pairs: ["The Lion and the Fox","Virtù"]},
+
+  // Deming
+  {id: "94/6 Rule", thinker: "W. Edwards Deming", status: "practiced", def: "When something goes wrong, 94% of the time it's the system, 6% the person. Fix the system first.", pairs: ["A Bad System Beats a Good Person","Common Cause Variation","Systems vs. Goals","Fake Because"]},
+  {id: "Common Cause Variation", thinker: "W. Edwards Deming", status: "practiced", def: "Most variation isn't an event — it's the system breathing. Don't react to noise as if it were signal.", pairs: ["94/6 Rule","A Bad System Beats a Good Person","Pace Layering","Focus Inflates Importance"]},
+  {id: "A Bad System Beats a Good Person", thinker: "W. Edwards Deming", status: "practiced", def: "Dedicated people in a broken system burn out. Don't blame the burnout — fix the system.", pairs: ["94/6 Rule","Common Cause Variation","Systems vs. Goals"]},
+
+  // Fisher/Ury
+  {id: "Inventing Options for Mutual Gain", thinker: "Fisher/Ury", status: "practiced", def: "Generate options before deciding. The first move in negotiation isn't picking — it's expanding the menu.", pairs: ["Thinking Past the Sale","Create a Customer","Pacing and Leading"]},
+
+  // John Boyd
+  {id: "OODA Loop", thinker: "John Boyd", status: "practiced", def: "Observe → Orient → Decide → Act. Whoever cycles faster gets inside the other side's loop and disorients them.", pairs: ["Innovator's Dilemma","Systems vs. Goals","Virtù"]},
+
+  // Clayton Christensen
+  {id: "Innovator's Dilemma", thinker: "Clayton Christensen", status: "practiced", def: "Established firms get killed by 'inferior' products precisely because they serve their best customers too well to notice.", pairs: ["OODA Loop","Systems vs. Goals","Create a Customer"]},
+
+  // Stewart Brand
+  {id: "Pace Layering", thinker: "Stewart Brand", status: "practiced", def: "Different parts of a system change at different speeds. Fashion changes weekly; infrastructure, decades. Mismatch the layers and you break things.", pairs: ["Systems vs. Goals","Common Cause Variation"]},
+
+  // Banked
+  {id: "Framing / Front Stage / Back Stage", thinker: "Erving Goffman", status: "banked", def: "Banked. People perform differently on the front stage (visible) than back stage (private). Whoever sets the frame first wins.", pairs: ["The Lion and the Fox","Strategic Ambiguity","Power Reveals"]},
+  {id: "Overinterpretation / Hyperreality", thinker: "Umberto Eco", status: "banked", def: "Banked. Once you treat every detail as a hidden clue, you've stopped reading and started building a conspiracy. The institutional reading becomes the artifact.", pairs: []}
+];
+
+// ---------- BUILD GRAPH ----------
+const nameToId = {};
+techniques.forEach((t,i)=>{ nameToId[t.id] = i; });
+
+// Count pair appearances (for node sizing)
+const pairCount = {};
+techniques.forEach(t => { pairCount[t.id] = (pairCount[t.id]||0); });
+techniques.forEach(t => {
+  t.pairs.forEach(p => {
+    if (nameToId[p] !== undefined) {
+      pairCount[t.id] = (pairCount[t.id]||0)+1;
+      pairCount[p]    = (pairCount[p]||0)+1;
+    }
+  });
+});
+
+const nodes = techniques.map((t,i) => ({
+  id: i,
+  label: t.id,
+  title: t.def,
+  group: t.thinker,
+  color: {
+    background: thinkers[t.thinker] || "#777",
+    border: statusBorder[t.status],
+    highlight: { background: thinkers[t.thinker], border: "#000" }
+  },
+  borderWidth: 3,
+  shape: "dot",
+  size: 12 + Math.min(18, (pairCount[t.id]||0) * 2.2),
+  font: { color: "#222", size: 12, face: "system-ui", strokeWidth: 4, strokeColor: "#fafaf7" }
+}));
+
+const edgeSet = new Set();
+const edges = [];
+techniques.forEach((t,i) => {
+  t.pairs.forEach(p => {
+    if (nameToId[p] !== undefined) {
+      const a = i, b = nameToId[p];
+      const key = a < b ? a+"-"+b : b+"-"+a;
+      if (!edgeSet.has(key)) {
+        edgeSet.add(key);
+        const sameThinker = techniques[a].thinker === techniques[b].thinker;
+        edges.push({
+          from: a, to: b,
+          color: { color: sameThinker ? "#bbb6a8" : "#d8d3c5", opacity: 0.55 },
+          width: sameThinker ? 1.6 : 1
+        });
+      }
+    }
+  });
+});
+
+// ---------- RENDER ----------
+const container = document.getElementById('network');
+const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+const options = {
+  layout: { improvedLayout: true },
+  physics: {
+    enabled: true,
+    solver: "forceAtlas2Based",
+    forceAtlas2Based: {
+      gravitationalConstant: -55,
+      centralGravity: 0.012,
+      springLength: 130,
+      springConstant: 0.035,
+      damping: 0.6,
+      avoidOverlap: 0.6
+    },
+    stabilization: { iterations: 400 }
+  },
+  interaction: { hover: true, tooltipDelay: 200, dragNodes: true, zoomView: true }
+};
+const network = new vis.Network(container, data, options);
+
+// ---------- LEGEND ----------
+const legendDiv = document.getElementById('thinkerLegend');
+Object.keys(thinkers).forEach(t => {
+  const row = document.createElement('div');
+  row.className = 'legend-row';
+  const count = techniques.filter(x => x.thinker === t).length;
+  row.innerHTML = '<div class="swatch" style="background:'+thinkers[t]+';"></div>'+t+' <span style="margin-left:auto;color:#999;font-size:11px;">('+count+')</span>';
+  row.style.cursor = 'pointer';
+  row.onclick = () => {
+    const sel = nodes.filter(n => n.group === t).map(n => n.id);
+    network.selectNodes(sel);
+    network.fit({nodes: sel, animation: {duration: 400}});
+  };
+  legendDiv.appendChild(row);
+});
+
+// ---------- INFO PANEL ----------
+const info = document.getElementById('info');
+network.on("hoverNode", e => {
+  const t = techniques[e.node];
+  info.innerHTML =
+    '<h3>'+t.id+'</h3>'+
+    '<div class="thinker">'+t.thinker+' &middot; '+t.status+'</div>'+
+    '<div class="definition">'+t.def+'</div>'+
+    (t.pairs.length ? '<div class="pairs"><strong>Combines well with:</strong> '+t.pairs.join(', ')+'</div>' : '');
+  info.style.display = 'block';
+});
+network.on("blurNode", () => { info.style.display = 'none'; });
+network.on("click", e => {
+  if (e.nodes.length === 0) info.style.display = 'none';
+  else {
+    const t = techniques[e.nodes[0]];
+    info.innerHTML =
+      '<h3>'+t.id+'</h3>'+
+      '<div class="thinker">'+t.thinker+' &middot; '+t.status+'</div>'+
+      '<div class="definition">'+t.def+'</div>'+
+      (t.pairs.length ? '<div class="pairs"><strong>Combines well with:</strong> '+t.pairs.join(', ')+'</div>' : '');
+    info.style.display = 'block';
+  }
+});
+</script>
+</body>
+</html>
